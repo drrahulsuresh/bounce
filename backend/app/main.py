@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
-from .rag_system import process_query
+from app.rag_system import rag_system
 
 app = FastAPI()
 
@@ -9,12 +9,13 @@ class QueryRequest(BaseModel):
 
 @app.get("/")
 def root():
-    return {"message": "RAG-powered Survey Analysis"}
+    return {"message": "Welcome to the RAG-powered Survey Analysis!"}
 
 @app.post("/query")
 def query_rag(request: QueryRequest):
     try:
-        response = process_query(request.query)
+        # Process the query using the RAG system
+        response = rag_system.generate_response(request.query)
         return {"response": response}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"error": str(e)}
