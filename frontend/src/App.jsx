@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import InsightsChart from './InsightsChart';
+import InsightsChart from './Insights';
 
 function App() {
   const [query, setQuery] = useState("");
@@ -19,11 +19,18 @@ function App() {
         body: JSON.stringify({ query }),
       });
       const data = await res.json();
-      setResponse(data.response);
 
-      // Example logic for setting chart data
+      // Truncate the response to a specific length
+      const truncatedResponse = data.response.length > 300
+        ? data.response.substring(0, 300) + "..."
+        : data.response;
+
+      setResponse(truncatedResponse);
+
+      // Example logic for setting chart data based on query
       const parsedData = [65, 59, 80]; // Modify this based on actual response data
       setChartData(parsedData);
+
     } catch (error) {
       console.error("Error:", error);
     }
@@ -32,32 +39,34 @@ function App() {
 
   return (
     <div className="App">
-      <h1>RAG Survey Insights</h1>
-      <form onSubmit={handleQuerySubmit}>
-        <input 
-          type="text" 
-          value={query} 
-          onChange={(e) => setQuery(e.target.value)} 
-          placeholder="Enter your query" 
-          required 
-        />
-        <button type="submit">Submit Query</button>
-      </form>
+      <div className="form-container">
+        <h1>RAG Survey Insights</h1>
 
-      {loading && <p>Loading...</p>}
+        <form onSubmit={handleQuerySubmit}>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Enter your query"
+            required
+          />
+          <button type="submit">Submit Query</button>
+        </form>
 
-      {response && (
-        <div>
-          <h2>Insights:</h2>
-          <pre>{JSON.stringify(response, null, 2)}</pre>
-        </div>
-      )}
+        {loading && <p className="loading">Loading...</p>}
 
-      {/* Display the chart */}
-      <InsightsChart data={chartData} />
+        {response && (
+          <div className="response-container">
+            <h2>Insights:</h2>
+            <pre>{response}</pre>
+
+            {/* Only show the chart when response is available */}
+            {chartData.length > 0 && <InsightsChart data={chartData} />}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 export default App;
-s

@@ -3,19 +3,32 @@ from fuzzywuzzy import fuzz
 from sqlalchemy.orm import Session
 from transformers import pipeline
 from backend.app.models import SurveyData, engine
-import redis
 from textblob import TextBlob
+import sqlite3
 
 # Load spaCy model
 nlp = spacy.load("en_core_web_sm")
 
-# Initialize Redis for caching
-cache = redis.StrictRedis(host='localhost', port=6379, db=0)
+# Function to create a new SQLite connection (thread-safe)
+def get_sqlite_connection():
+    conn = sqlite3.connect('cache.db', check_same_thread=False)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cache (
+            query TEXT PRIMARY KEY,
+            response TEXT
+        )
+    ''')
+    conn.commit()
+    return conn
 
+# Initialize the RAG system with thread-safe SQLite
 class RAGSystem:
     def __init__(self):
         self.session = Session(bind=engine)
         self.text_generation_model = pipeline("text-generation", model="gpt2")
+        self.conn = get_sqlite_connection()
+        self.cursor = self.conn.cursor()
 
     def preprocess_query(self, query):
         """ Preprocess the user query using spaCy to lemmatize and remove stopwords. """
@@ -29,12 +42,14 @@ class RAGSystem:
         return analysis.sentiment.polarity
 
     def retrieve_data(self, query):
-        """ Retrieve data from the database based on the processed query, with Redis caching. """
-        # Check cache first
-        cached_response = cache.get(query)
+        """ Retrieve data from the database based on the processed query, with SQLite caching. """
+        # Check cache first in SQLite
+        self.cursor.execute("SELECT response FROM cache WHERE query = ?", (query,))
+        cached_response = self.cursor.fetchone()
+
         if cached_response:
             print("Returning cached response.")
-            return cached_response.decode('utf-8')
+            return cached_response[0]
 
         # Preprocess the query
         preprocessed_query = self.preprocess_query(query)
@@ -48,8 +63,9 @@ class RAGSystem:
             retrieved_data = [f"{row.question}: {row.response_value}" for row in result]
             combined_data = " ".join(retrieved_data)
 
-            # Cache the result
-            cache.set(query, combined_data)
+            # Cache the result in SQLite
+            self.cursor.execute("INSERT OR REPLACE INTO cache (query, response) VALUES (?, ?)", (query, combined_data))
+            self.conn.commit()
             print("Caching result for future queries.")
             
             return combined_data

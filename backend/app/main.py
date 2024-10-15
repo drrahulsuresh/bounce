@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from backend.app.rag_system import rag_system
 
-
 app = FastAPI()
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -13,6 +13,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 class QueryRequest(BaseModel):
     query: str
 
